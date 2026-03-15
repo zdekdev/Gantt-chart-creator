@@ -1043,19 +1043,41 @@ function ganttApp() {
       const el = document.getElementById('gantt-container');
       if (!el) return;
       this.toast('Gerando PNG…','success');
-      await new Promise(r => setTimeout(r, 80));
+      
+      // Preparar container para exportar todo o conteúdo (remover scroll)
+      const scrollArea = el.querySelector('.gantt-table').parentElement;
+      const originalOverflow = scrollArea.style.overflowX;
+      const originalWidth = el.style.width;
+      const originalMaxWidth = el.style.maxWidth;
+      
+      scrollArea.style.overflowX = 'visible';
+      el.style.width = 'max-content';
+      el.style.maxWidth = 'none';
+
+      await new Promise(r => setTimeout(r, 100)); // Pequeno delay para renderizar a expansão
+      
       html2canvas(el, {
         backgroundColor: '#181c27',
-        scale: 2,
+        scale: 4, // Aumenta a densidade de pixels para alta qualidade (antes era 2, agora 4)
         useCORS: true,
         logging: false
       }).then(canvas => {
+        // Restaurar estado original do DOM
+        scrollArea.style.overflowX = originalOverflow;
+        el.style.width = originalWidth;
+        el.style.maxWidth = originalMaxWidth;
+        
         const a = document.createElement('a');
         a.download = (this.project.name || 'gantt') + '.png';
         a.href = canvas.toDataURL('image/png');
         a.click();
         this.toast('PNG exportado com sucesso!','success');
-      }).catch(() => {
+      }).catch((err) => {
+        console.error(err);
+        // Restaurar estado original em caso de erro
+        scrollArea.style.overflowX = originalOverflow;
+        el.style.width = originalWidth;
+        el.style.maxWidth = originalMaxWidth;
         this.toast('Erro ao exportar PNG.','error');
       });
     },
