@@ -9,11 +9,11 @@
     content="Criador de Diagramas de Gantt interativo — organize suas etapas e exporte em PNG." />
 
   <!-- Flowbite CSS -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" crossorigin="anonymous" />
   <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <!-- html2canvas for PNG Export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous" />
+  <!-- SnapDOM for PNG Export -->
+  <script src="https://unpkg.com/@zumer/snapdom/dist/snapdom.js"></script>
   <!-- AlpineJS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.10/cdn.min.js"></script>
   <!-- Flowbite JS -->
@@ -492,6 +492,7 @@
       height: 28px;
       position: relative;
       border-right: 1px solid transparent;
+      line-height: 28px;
     }
 
     .day-cell.weekend {
@@ -1299,21 +1300,18 @@
 
           await new Promise(r => setTimeout(r, 100)); // Pequeno delay para renderizar a expansão
 
-          html2canvas(el, {
+          // Using SnapDOM
+          snapdom.download(el, {
             backgroundColor: '#181c27',
-            scale: 4, // Aumenta a densidade de pixels para alta qualidade (antes era 2, agora 4)
-            useCORS: true,
-            logging: false
-          }).then(canvas => {
+            scale: 4,
+            format: 'png',
+            filename: (this.project.name || 'gantt')
+          }).then(() => {
             // Restaurar estado original do DOM
             scrollArea.style.overflowX = originalOverflow;
             el.style.width = originalWidth;
             el.style.maxWidth = originalMaxWidth;
 
-            const a = document.createElement('a');
-            a.download = (this.project.name || 'gantt') + '.png';
-            a.href = canvas.toDataURL('image/png');
-            a.click();
             this.toast('PNG exportado com sucesso!', 'success');
           }).catch((err) => {
             console.error(err);
