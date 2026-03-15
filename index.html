@@ -689,16 +689,17 @@
                             'today-col': d.isToday
                           }"
                           :style="'width:' + scale + 'px; min-width:' + scale + 'px;'">
-                        <div x-show="isInRange(task, d)"
-                             class="bar-segment"
-                             :class="{
-                               'bar-phase': task.isPhase,
-                               'bar-start': isBarStart(task, d) && !isBarEnd(task, d),
-                               'bar-end':   isBarEnd(task, d)   && !isBarStart(task, d),
-                               'bar-only':  isBarStart(task, d) && isBarEnd(task, d)
-                             }"
-                             :style="'background:' + taskColor(ti, task.isPhase) + ';'">
-                        </div>
+                        <template x-if="isInRange(task, d)">
+                          <div class="bar-segment"
+                               :class="{
+                                 'bar-phase': task.isPhase,
+                                 'bar-start': isBarStart(task, d) && !isBarEnd(task, d),
+                                 'bar-end':   isBarEnd(task, d)   && !isBarStart(task, d),
+                                 'bar-only':  isBarStart(task, d) && isBarEnd(task, d)
+                               }"
+                               :style="{ backgroundColor: taskColor(task) }">
+                          </div>
+                        </template>
                       </td>
                     </template>
                   </tr>
@@ -767,6 +768,21 @@
             <option value="false">Atividade</option>
             <option value="true">Fase (destaque)</option>
           </select>
+        </div>
+      </div>
+
+      <div class="form-row" style="align-items:flex-end;">
+        <div class="form-group" style="flex:0 0 auto;">
+          <label>Cor da barra</label>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="color" x-model="modal.form.color"
+                   style="width:44px; height:34px; border:1px solid var(--border); border-radius:7px; background:var(--bg-input); cursor:pointer; padding:2px 3px;" />
+            <span style="font-size:0.75rem; color:var(--text-secondary);" x-text="modal.form.color"></span>
+            <button type="button" class="btn btn-ghost btn-sm" @click="modal.form.color = defaultColor()" title="Redefinir cor padrão">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
+              Padrão
+            </button>
+          </div>
         </div>
       </div>
 
@@ -941,9 +957,11 @@ function ganttApp() {
       const e = parseLocalDate(task.end);
       return e && d.date.toDateString() === e.toDateString();
     },
-    taskColor(index, isPhase) {
-      if (isPhase) return PHASE_COLOR;
-      return COLORS[index % COLORS.length];
+    taskColor(task) {
+      if (task.color) return task.color;
+      if (task.isPhase) return PHASE_COLOR;
+      const index = this.tasks.indexOf(task);
+      return COLORS[(index >= 0 ? index : 0) % COLORS.length];
     },
 
     /* ─── Date formatting ─── */
@@ -956,7 +974,7 @@ function ganttApp() {
     /* ─── Modal ─── */
     openAdd() {
       this.modal.editIndex = null;
-      this.modal.form = { taskId:'', name:'', start:'', end:'', responsible:'', isPhase:'false' };
+      this.modal.form = { taskId:'', name:'', start:'', end:'', responsible:'', isPhase:'false', color: this.defaultColor() };
       this.modal.open = true;
     },
     openEdit(index) {
@@ -968,9 +986,14 @@ function ganttApp() {
         start:       t.start,
         end:         t.end,
         responsible: t.responsible,
-        isPhase:     String(t.isPhase)
+        isPhase:     String(t.isPhase),
+        color:       t.color || this.defaultColor(index)
       };
       this.modal.open = true;
+    },
+    defaultColor(index) {
+      const i = index !== undefined ? index : this.tasks.length;
+      return COLORS[i % COLORS.length];
     },
     saveTask() {
       const f = this.modal.form;
@@ -987,11 +1010,12 @@ function ganttApp() {
         start:       f.start,
         end:         f.end,
         responsible: f.responsible.trim(),
-        isPhase:     f.isPhase === 'true'
+        isPhase:     f.isPhase === 'true',
+        color:       f.color || this.defaultColor()
       };
 
       if (this.modal.editIndex !== null) {
-        this.tasks[this.modal.editIndex] = task;
+        this.tasks.splice(this.modal.editIndex, 1, task);
         this.toast('Tarefa atualizada!','success');
       } else {
         this.tasks.push(task);
