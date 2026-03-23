@@ -1288,37 +1288,78 @@
           if (!el) return;
           this.toast('Gerando PNG…', 'success');
 
-          // Preparar container para exportar todo o conteúdo (remover scroll)
-          const scrollArea = el.querySelector('.gantt-table').parentElement;
-          const originalOverflow = scrollArea.style.overflowX;
-          const originalWidth = el.style.width;
-          const originalMaxWidth = el.style.maxWidth;
+          // Preparar container para exportar todo o conteúdo (remover scroll e restrições)
+          const scrollArea = el.querySelector('div[style*="overflow-x:auto"]') || el.querySelector('.gantt-table').parentElement;
+          const table = el.querySelector('.gantt-table');
+          const fullWidth = Math.max(scrollArea.scrollWidth, table.offsetWidth);
 
+          // Salvar estado original de `el` e sub-elementos
+          const originalElWidth = el.style.width;
+          const originalElMaxWidth = el.style.maxWidth;
+          const originalScrollOverflow = scrollArea.style.overflowX;
+          const originalScrollWidth = scrollArea.style.width;
+          const originalScrollMaxWidth = scrollArea.style.maxWidth;
+
+          // Expandir os elementos internos
           scrollArea.style.overflowX = 'visible';
-          el.style.width = 'max-content';
+          scrollArea.style.width = fullWidth + 'px';
+          scrollArea.style.maxWidth = 'none';
+          el.style.width = fullWidth + 'px';
           el.style.maxWidth = 'none';
+          
+          // Salvar estado original dos ancestrais para remover restrições de clipping
+          const ancestors = [];
+          let currentParent = el.parentElement;
+          while (currentParent && currentParent !== document.body) {
+            ancestors.push({
+              el: currentParent,
+              overflow: currentParent.style.overflow,
+              overflowX: currentParent.style.overflowX,
+              overflowY: currentParent.style.overflowY,
+            });
+            currentParent.style.overflow = 'visible';
+            currentParent.style.overflowX = 'visible';
+            currentParent.style.overflowY = 'visible';
+            currentParent = currentParent.parentElement;
+          }
 
-          await new Promise(r => setTimeout(r, 100)); // Pequeno delay para renderizar a expansão
+          await new Promise(r => setTimeout(r, 150)); // Delay para aplicar o layout
 
           // Using SnapDOM
           snapdom.download(el, {
             backgroundColor: '#181c27',
-            scale: 4,
+            scale: 2, /* reduzido para evitar travamento em imagens gigantes */
             format: 'png',
             filename: (this.project.name || 'gantt')
           }).then(() => {
             // Restaurar estado original do DOM
-            scrollArea.style.overflowX = originalOverflow;
-            el.style.width = originalWidth;
-            el.style.maxWidth = originalMaxWidth;
+            scrollArea.style.overflowX = originalScrollOverflow;
+            scrollArea.style.width = originalScrollWidth;
+            scrollArea.style.maxWidth = originalScrollMaxWidth;
+            el.style.width = originalElWidth;
+            el.style.maxWidth = originalElMaxWidth;
+            
+            ancestors.forEach(anc => {
+              anc.el.style.overflow = anc.overflow;
+              anc.el.style.overflowX = anc.overflowX;
+              anc.el.style.overflowY = anc.overflowY;
+            });
 
             this.toast('PNG exportado com sucesso!', 'success');
           }).catch((err) => {
             console.error(err);
             // Restaurar estado original em caso de erro
-            scrollArea.style.overflowX = originalOverflow;
-            el.style.width = originalWidth;
-            el.style.maxWidth = originalMaxWidth;
+            scrollArea.style.overflowX = originalScrollOverflow;
+            scrollArea.style.width = originalScrollWidth;
+            scrollArea.style.maxWidth = originalScrollMaxWidth;
+            el.style.width = originalElWidth;
+            el.style.maxWidth = originalElMaxWidth;
+            
+            ancestors.forEach(anc => {
+              anc.el.style.overflow = anc.overflow;
+              anc.el.style.overflowX = anc.overflowX;
+              anc.el.style.overflowY = anc.overflowY;
+            });
             this.toast('Erro ao exportar PNG.', 'error');
           });
         },
