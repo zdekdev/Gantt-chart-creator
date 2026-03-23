@@ -9,11 +9,13 @@
     content="Criador de Diagramas de Gantt interativo — organize suas etapas e exporte em PNG." />
 
   <!-- Flowbite CSS -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" crossorigin="anonymous" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet"
+    crossorigin="anonymous" />
   <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous" />
-  <!-- SnapDOM for PNG Export -->
-  <script src="https://unpkg.com/@zumer/snapdom/dist/snapdom.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"
+    crossorigin="anonymous" />
+  <!-- Html2Canvas para PNG Export perfeito -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <!-- AlpineJS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.10/cdn.min.js"></script>
   <!-- Flowbite JS -->
@@ -423,11 +425,13 @@
 
     /* time scale header */
     .gantt-scale-row th {
+      height: 29px;
+      vertical-align: middle !important;
       font-size: 0.68rem;
       font-weight: 600;
       color: var(--text-primary);
       text-align: center;
-      padding: 4px 2px;
+      padding: 0px 2px !important;
       border-bottom: 1px solid var(--border);
       background: var(--bg-base);
     }
@@ -896,8 +900,8 @@
                     </th>
                     <th style="border-right:1px solid var(--border);"></th>
                     <template x-for="(m, mi) in monthGroups" :key="mi">
-                      <th class="month-header" :colspan="m.span" style="text-align:left; padding-left:6px; white-space: nowrap;"
-                        x-text="m.label"></th>
+                      <th class="month-header" :colspan="m.span"
+                        style="text-align:left; padding-left:6px; white-space: nowrap;" x-text="m.label"></th>
                     </template>
                   </tr>
                   <!-- Day row -->
@@ -1288,79 +1292,69 @@
           if (!el) return;
           this.toast('Gerando PNG…', 'success');
 
-          // Preparar container para exportar todo o conteúdo (remover scroll e restrições)
           const scrollArea = el.querySelector('div[style*="overflow-x:auto"]') || el.querySelector('.gantt-table').parentElement;
           const table = el.querySelector('.gantt-table');
-          const fullWidth = Math.max(scrollArea.scrollWidth, table.offsetWidth);
 
-          // Salvar estado original de `el` e sub-elementos
-          const originalElWidth = el.style.width;
-          const originalElMaxWidth = el.style.maxWidth;
-          const originalScrollOverflow = scrollArea.style.overflowX;
+          const targetWidth = Math.max(scrollArea.scrollWidth, table.offsetWidth, el.scrollWidth);
+
+          // Salvar estado original para restaurar depois
+          const originalOverflow = scrollArea.style.overflowX;
+          const originalMaxWidth = el.style.maxWidth;
+          const originalWidth = el.style.width;
           const originalScrollWidth = scrollArea.style.width;
-          const originalScrollMaxWidth = scrollArea.style.maxWidth;
 
-          // Expandir os elementos internos
+          // Forçar a expansão dos elementos para o html2canvas não cortar nada
           scrollArea.style.overflowX = 'visible';
-          scrollArea.style.width = fullWidth + 'px';
-          scrollArea.style.maxWidth = 'none';
-          el.style.width = fullWidth + 'px';
+          scrollArea.style.width = targetWidth + 'px';
           el.style.maxWidth = 'none';
-          
-          // Salvar estado original dos ancestrais para remover restrições de clipping
-          const ancestors = [];
-          let currentParent = el.parentElement;
-          while (currentParent && currentParent !== document.body) {
-            ancestors.push({
-              el: currentParent,
-              overflow: currentParent.style.overflow,
-              overflowX: currentParent.style.overflowX,
-              overflowY: currentParent.style.overflowY,
-            });
-            currentParent.style.overflow = 'visible';
-            currentParent.style.overflowX = 'visible';
-            currentParent.style.overflowY = 'visible';
-            currentParent = currentParent.parentElement;
-          }
+          el.style.width = (targetWidth + 60) + 'px'; // + margem do padding do container
 
-          await new Promise(r => setTimeout(r, 150)); // Delay para aplicar o layout
+          await new Promise(r => setTimeout(r, 150)); // Deixa o DOM respirar e repassar os estilos
 
-          // Using SnapDOM
-          snapdom.download(el, {
+          // Criar nosso render virtual chamando a bilioteca customizada Html2Canvas
+          html2canvas(el, {
             backgroundColor: '#181c27',
-            scale: 2, /* reduzido para evitar travamento em imagens gigantes */
-            format: 'png',
-            filename: (this.project.name || 'gantt')
-          }).then(() => {
-            // Restaurar estado original do DOM
-            scrollArea.style.overflowX = originalScrollOverflow;
-            scrollArea.style.width = originalScrollWidth;
-            scrollArea.style.maxWidth = originalScrollMaxWidth;
-            el.style.width = originalElWidth;
-            el.style.maxWidth = originalElMaxWidth;
-            
-            ancestors.forEach(anc => {
-              anc.el.style.overflow = anc.overflow;
-              anc.el.style.overflowX = anc.overflowX;
-              anc.el.style.overflowY = anc.overflowY;
-            });
+            scale: 2,     // Dobrar escala para alta resolução (Retina)
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
 
-            this.toast('PNG exportado com sucesso!', 'success');
-          }).catch((err) => {
-            console.error(err);
-            // Restaurar estado original em caso de erro
-            scrollArea.style.overflowX = originalScrollOverflow;
+            onclone: (clonedDoc) => {
+
+              const headers = clonedDoc.querySelectorAll('.gantt-scale-row th');
+
+              // 2. Faz um loop por cada um deles
+              headers.forEach((th) => {
+                // 3. Aplica o estilo vertical-align: top !important corretamente
+                th.style.setProperty('vertical-align', 'top', 'important');
+              });
+
+
+            }
+
+          }).then(canvas => {
+            // Reverter o DOM para o estado inicial com scroll após gerar a tela
+            scrollArea.style.overflowX = originalOverflow;
             scrollArea.style.width = originalScrollWidth;
-            scrollArea.style.maxWidth = originalScrollMaxWidth;
-            el.style.width = originalElWidth;
-            el.style.maxWidth = originalElMaxWidth;
-            
-            ancestors.forEach(anc => {
-              anc.el.style.overflow = anc.overflow;
-              anc.el.style.overflowX = anc.overflowX;
-              anc.el.style.overflowY = anc.overflowY;
-            });
-            this.toast('Erro ao exportar PNG.', 'error');
+            el.style.maxWidth = originalMaxWidth;
+            el.style.width = originalWidth;
+
+            // Converter a tela capturada para imagem PNG local e disparar download
+            const link = document.createElement('a');
+            link.download = (this.project.name || 'gantt-chart') + '.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            this.toast('PNG exportado com excelência!', 'success');
+          }).catch(err => {
+            console.error(err);
+            // Reverter o DOM para o estado inicial em caso de erro
+            scrollArea.style.overflowX = originalOverflow;
+            scrollArea.style.width = originalScrollWidth;
+            el.style.maxWidth = originalMaxWidth;
+            el.style.width = originalWidth;
+
+            this.toast('Erro ao processar imagem PNG.', 'error');
           });
         },
 
